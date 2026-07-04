@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Card, Row, Col, Statistic, Button, Modal, Form, InputNumber, Select, DatePicker, Input, message } from 'antd'
 import { PlusOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
-import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '../types'
 
 interface Props {
   onNavigate: (page: string) => void
@@ -14,8 +13,19 @@ export default function Home({ onNavigate }: Props) {
   const [type, setType] = useState<'income' | 'expense'>('expense')
   const [stats, setStats] = useState({ income: 0, expense: 0 })
   const [loading, setLoading] = useState(false)
+  const [categories, setCategories] = useState<string[]>([])
 
   const month = dayjs().format('YYYY-MM')
+
+  const loadCategories = async (t: string) => {
+    const data = await (window as any).api.getCategories(t)
+    setCategories(data)
+  }
+
+  useEffect(() => {
+    loadCategories(type)
+    form.setFieldValue('category', undefined)
+  }, [type])
 
   const loadStats = async () => {
     const result = await (window as any).api.getMonthlyStats(month)
@@ -28,10 +38,16 @@ export default function Home({ onNavigate }: Props) {
     try {
       const values = await form.validateFields()
       setLoading(true)
+      // 保存新分类
+      const cat = Array.isArray(values.category) ? values.category[0] : values.category
+      if (!categories.includes(cat)) {
+        await (window as any).api.addCategory(type, cat)
+        loadCategories(type)
+      }
       await (window as any).api.addTransaction({
         type,
         amount: values.amount,
-        category: values.category,
+        category: Array.isArray(values.category) ? values.category[0] : values.category,
         note: values.note || '',
         date: values.date.format('YYYY-MM-DD'),
       })
@@ -45,8 +61,6 @@ export default function Home({ onNavigate }: Props) {
       setLoading(false)
     }
   }
-
-  const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES
 
   return (
     <div>
@@ -124,8 +138,13 @@ export default function Home({ onNavigate }: Props) {
           <Form.Item name="amount" label="金额" rules={[{ required: true, message: '请输入金额' }]}>
             <InputNumber min={0.01} precision={2} prefix="¥" style={{ width: '100%' }} size="large" />
           </Form.Item>
-          <Form.Item name="category" label="分类" rules={[{ required: true, message: '请选择分类' }]}>
-            <Select options={categories.map(c => ({ value: c, label: c }))} />
+          <Form.Item name="category" label="分类" rules={[{ required: true, message: '请选择或输入分类' }]}>
+            <Select
+              mode="tags"
+              maxCount={1}
+              options={categories.map(c => ({ value: c, label: c }))}
+              placeholder="选择或输入新分类"
+            />
           </Form.Item>
           <Form.Item name="date" label="日期" rules={[{ required: true }]}>
             <DatePicker style={{ width: '100%' }} />
