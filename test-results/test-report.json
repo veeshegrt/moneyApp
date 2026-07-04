@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-07-04T08:31:25.574Z",
+  "summary": {
+    "total": 11,
+    "passed": 11,
+    "failed": 0,
+    "skipped": 0,
+    "passRate": "100.00%"
+  },
+  "tests": [
+    {
+      "name": "D:/AI/VibeCoding/moneyApp/src/__tests__/router.test.ts",
+      "status": "passed",
+      "failureMessages": []
+    },
+    {
+      "name": "D:/AI/VibeCoding/moneyApp/src/__tests__/types.test.ts",
+      "status": "passed",
+      "failureMessages": []
+    }
+  ],
+  "coverage": null
+}

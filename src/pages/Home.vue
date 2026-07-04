@@ -3,7 +3,7 @@
     <a-row :gutter="16" style="margin-bottom: 24px">
       <a-col :span="8">
         <a-card>
-          <a-statistic title="本月收入" :value="stats.income" :precision="2" suffix="元">
+          <a-statistic title="本月总收入" :value="stats.income" :precision="2" suffix="元">
             <template #prefix>
               <arrow-up-outlined style="color: #3f8600" />
             </template>
@@ -12,7 +12,7 @@
       </a-col>
       <a-col :span="8">
         <a-card>
-          <a-statistic title="本月支出" :value="stats.expense" :precision="2" suffix="元">
+          <a-statistic title="本月总支出" :value="stats.expense" :precision="2" suffix="元">
             <template #prefix>
               <arrow-down-outlined style="color: #cf1322" />
             </template>

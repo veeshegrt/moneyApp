@@ -1,0 +1,180 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo ""
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║                   Git Pre-Commit Hook                       ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo ""
+
+# 颜色定义
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# 错误计数
+ERRORS=0
+
+# ============================================================
+# 步骤 1: 运行单元测试
+# ============================================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🧪 步骤 1/3: 运行单元测试"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+npm test
+TEST_EXIT_CODE=$?
+
+if [ $TEST_EXIT_CODE -ne 0 ]; then
+  echo ""
+  echo -e "${RED}❌ 单元测试失败！${NC}"
+  echo -e "${RED}   请修复失败的测试后再提交。${NC}"
+  ERRORS=$((ERRORS + 1))
+else
+  echo ""
+  echo -e "${GREEN}✅ 单元测试通过！${NC}"
+fi
+
+echo ""
+
+# ============================================================
+# 步骤 2: 运行 TypeScript 类型检查
+# ============================================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "📝 步骤 2/3: TypeScript 类型检查"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+npx vue-tsc --noEmit
+TSC_EXIT_CODE=$?
+
+if [ $TSC_EXIT_CODE -ne 0 ]; then
+  echo ""
+  echo -e "${RED}❌ TypeScript 类型检查失败！${NC}"
+  echo -e "${RED}   请修复类型错误后再提交。${NC}"
+  ERRORS=$((ERRORS + 1))
+else
+  echo ""
+  echo -e "${GREEN}✅ TypeScript 类型检查通过！${NC}"
+fi
+
+echo ""
+
+# ============================================================
+# 步骤 3: 代码质量检查
+# ============================================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔍 步骤 3/3: 代码质量检查"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# 3.1 检查是否有 console.log（生产环境不应该有）
+echo "检查 console.log..."
+CONSOLE_LOG_COUNT=$(grep -r "console\.log" src/ --include="*.ts" --include="*.vue" | grep -v "test-setup.ts" | wc -l)
+
+if [ $CONSOLE_LOG_COUNT -gt 0 ]; then
+  echo ""
+  echo -e "${YELLOW}⚠️  发现 ${CONSOLE_LOG_COUNT} 个 console.log 语句：${NC}"
+  grep -r "console\.log" src/ --include="*.ts" --include="*.vue" | grep -v "test-setup.ts" | head -5
+  echo ""
+  echo -e "${YELLOW}   建议：生产代码中应使用 console.warn 或 console.error${NC}"
+  # 这里不阻止提交，只给出警告
+fi
+
+# 3.2 检查是否有 TODO/FIXME/HACK
+echo "检查 TODO/FIXME/HACK..."
+TODO_COUNT=$(grep -r "TODO\|FIXME\|HACK" src/ electron/ --include="*.ts" --include="*.vue" | wc -l)
+
+if [ $TODO_COUNT -gt 0 ]; then
+  echo ""
+  echo -e "${YELLOW}⚠️  发现 ${TODO_COUNT} 个 TODO/FIXME/HACK：${NC}"
+  grep -r "TODO\|FIXME\|HACK" src/ electron/ --include="*.ts" --include="*.vue" | head -5
+  echo ""
+  echo -e "${YELLOW}   建议：提交前处理这些待办事项${NC}"
+  # 这里不阻止提交，只给出警告
+fi
+
+# 3.3 检查是否有 any 类型
+echo "检查 any 类型使用..."
+ANY_COUNT=$(grep -r ": any\|as any" src/ electron/ --include="*.ts" --include="*.vue" | wc -l)
+
+if [ $ANY_COUNT -gt 0 ]; then
+  echo ""
+  echo -e "${YELLOW}⚠️  发现 ${ANY_COUNT} 个 any 类型使用：${NC}"
+  grep -r ": any\|as any" src/ electron/ --include="*.ts" --include="*.vue" | head -5
+  echo ""
+  echo -e "${YELLOW}   建议：使用具体类型替代 any${NC}"
+  # 这里不阻止提交，只给出警告
+fi
+
+# 3.4 检查是否有硬编码的敏感信息
+echo "检查敏感信息..."
+SENSITIVE_COUNT=$(grep -rn "password\|secret\|api_key\|token" src/ electron/ --include="*.ts" --include="*.vue" -i | grep -v "test" | wc -l)
+
+if [ $SENSITIVE_COUNT -gt 0 ]; then
+  echo ""
+  echo -e "${RED}❌ 发现可能的敏感信息：${NC}"
+  grep -rn "password\|secret\|api_key\|token" src/ electron/ --include="*.ts" --include="*.vue" -i | grep -v "test" | head -5
+  echo ""
+  echo -e "${RED}   请检查是否包含硬编码的敏感信息！${NC}"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# 3.5 检查是否有 v-html（XSS 风险）
+echo "检查 XSS 风险..."
+VHTML_COUNT=$(grep -r "v-html" src/ --include="*.vue" | wc -l)
+
+if [ $VHTML_COUNT -gt 0 ]; then
+  echo ""
+  echo -e "${RED}❌ 发现 v-html 使用（XSS 风险）：${NC}"
+  grep -r "v-html" src/ --include="*.vue"
+  echo ""
+  echo -e "${RED}   请确保使用 v-html 是安全的，或使用文本插值替代！${NC}"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# 3.6 检查是否有 SQL 注入风险
+echo "检查 SQL 注入风险..."
+SQL_INJECTION=$(grep -rn "\`.*\${.*}\`" electron/ --include="*.ts" | grep -i "select\|insert\|update\|delete" | wc -l)
+
+if [ $SQL_INJECTION -gt 0 ]; then
+  echo ""
+  echo -e "${RED}❌ 发现可能的 SQL 注入风险：${NC}"
+  grep -rn "\`.*\${.*}\`" electron/ --include="*.ts" | grep -i "select\|insert\|update\|delete"
+  echo ""
+  echo -e "${RED}   请使用参数化查询替代字符串拼接！${NC}"
+  ERRORS=$((ERRORS + 1))
+fi
+
+echo ""
+
+# ============================================================
+# 结果汇总
+# ============================================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "📊 检查结果汇总"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+if [ $ERRORS -gt 0 ]; then
+  echo ""
+  echo -e "${RED}╔══════════════════════════════════════════════════════════════╗${NC}"
+  echo -e "${RED}║                    ❌ 提交被阻止                            ║${NC}"
+  echo -e "${RED}╚══════════════════════════════════════════════════════════════╝${NC}"
+  echo ""
+  echo -e "${RED}发现 ${ERRORS} 个问题，必须修复后才能提交。${NC}"
+  echo ""
+  echo "修复建议："
+  echo "  1. 运行 npm test 查看失败的测试"
+  echo "  2. 运行 npx vue-tsc --noEmit 查看类型错误"
+  echo "  3. 检查上述安全问题"
+  echo ""
+  exit 1
+else
+  echo ""
+  echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
+  echo -e "${GREEN}║                    ✅ 所有检查通过                          ║${NC}"
+  echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
+  echo ""
+  echo -e "${GREEN}代码质量检查和单元测试都通过了，允许提交！${NC}"
+  echo ""
+  exit 0
+fi
