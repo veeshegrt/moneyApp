@@ -11,8 +11,8 @@
 
 ## 技术栈
 
-- Electron 28 + React 18 + TypeScript
-- Ant Design UI 组件
+- Electron 28 + Vue 3 + TypeScript
+- Ant Design Vue UI 组件
 - ECharts 图表
 - better-sqlite3 本地存储
 
